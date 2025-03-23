@@ -117,6 +117,14 @@
               background-color: #444;
           }
       }
+
+      .cadre-running {
+          border-color: green;
+      }
+
+      .cadre-paused {
+          border-color: yellow;
+      }
     </style>
 </head>
 <body>
@@ -157,6 +165,12 @@
                 <label class="config-label">Marge (min) : 
                 <input type="number" id="questionsMargeAutorisee" value="2" min="0">
                 </label>
+            </div>
+        </div>
+        <div id="history" class="cadre">
+            <h3>Historique</h3>
+            <div id="historyList" class="container">
+                <!-- The times for defense and questions will be added here -->
             </div>
         </div>
     </div>
@@ -217,6 +231,23 @@
           }
         }
 
+      function addHistoryEntry(type, time) {
+          const historyList = document.getElementById("historyList");
+          const entry = document.createElement("div");
+          entry.textContent = `${type}: ${time}`;
+          historyList.insertBefore(entry, historyList.firstChild);
+      }
+
+      function updateCadreBorder(id, isRunning, isPaused) {
+          const cadre = document.getElementById(id);
+          cadre.classList.remove("cadre-running", "cadre-paused");
+          if (isRunning) {
+              cadre.classList.add("cadre-running");
+          } else if (isPaused) {
+              cadre.classList.add("cadre-paused");
+          }
+      }
+
       function createCounter(onStopCallback) {
           let currentChrono = "soutenanceChrono";
           let currentDuree = "soutenanceDuree";
@@ -229,24 +260,26 @@
 
           unlockButton(true, false, false,   false, false);
 
-          function pauseChrono(idBoutonPause)
-          {
+          function pauseChrono(idBoutonPause, cadreId) {
               if( ! isPaused )
               { // The counter will be stopped
                 const timeEnd = performance.now();
                 timeAlreadyUP = timeAlreadyUP + Math.floor((timeEnd-timeBegin)/1000);
                 isPaused = true;
                 document.getElementById(idBoutonPause).textContent = "Continuer";
+                updateCadreBorder(cadreId, false, true);
               }
               else
               { // The counter will be restarted
                 timeBegin = performance.now();
                 isPaused = false;
                 document.getElementById(idBoutonPause).textContent = "Pause";
+                updateCadreBorder(cadreId, true, false);
               }
           }
 
-          function startCounter() {
+          function startCounter(cadreId) {
+              updateCadreBorder(cadreId, true, false);
               intervalId = setInterval(() => {
                   if (!isPaused) {
                       const timeEnd = performance.now();
@@ -268,7 +301,7 @@
                   isPaused = false;
                   timeBegin = performance.now();
                   timeAlreadyUP = 0;
-                  startCounter();
+                  startCounter("soutenance");
                   document.getElementById("soutenanceBoutonStart").textContent = "Reinit";
                   unlockButton(true, true, true,   false, false);
                   requestWakeLock(); // Demander le verrouillage de l'écran
@@ -285,6 +318,7 @@
                   isPaused = true;
                   hasStarted = false;
                   unlockButton(true, false, false,   false, false);
+                  updateCadreBorder("soutenance", false, false);
 
                   // Réinitialiser le chronomètre et le redémarrer
                   startCounter();
@@ -292,10 +326,12 @@
           });
 
           document.getElementById("soutenanceBoutonPause").addEventListener('click', () => {
-              pauseChrono("soutenanceBoutonPause");
+              pauseChrono("soutenanceBoutonPause", "soutenance");
           });
 
           document.getElementById("soutenanceBoutonQuestions").addEventListener('click', () => {
+              addHistoryEntry("Soutenance", document.getElementById("soutenanceChrono").textContent);
+
               currentChrono = "questionsChrono";
               currentDuree = "questionsDuree";
               currentMargeAutorisee = "questionsMargeAutorisee";
@@ -308,15 +344,16 @@
               timeBegin = performance.now();
               timeAlreadyUP = 0;
               isPaused = false;
-              startCounter();
+              startCounter("questions");
 
               // Ne pas appeler releaseWakeLock ici
+              updateCadreBorder("soutenance", false, false);
           });
 
           // Questions
 
           document.getElementById("questionsBoutonPause").addEventListener('click', () => {
-              pauseChrono("questionsBoutonPause");
+              pauseChrono("questionsBoutonPause", "questions");
           });
 
           document.getElementById("questionsBoutonTerminer").addEventListener('click', () => {
@@ -332,6 +369,8 @@
 
               releaseWakeLock(); // Libérer le verrouillage de l'écran
               unlockButton(true, false, false,   false, false);
+              addHistoryEntry("Questions", document.getElementById("questionsChrono").textContent);
+              updateCadreBorder("questions", false, false);
           });
       }
 
